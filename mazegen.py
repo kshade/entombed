@@ -18,16 +18,12 @@ def right_random_bit():
     return get_random_bit()
 
 
-def mid_random_bit():
-    return get_random_bit()
-
-
 def generated(x):
     pass
 
 
-solid = 'XX'
-empty = '__'
+solid = '██'
+empty = '..'
 
 
 def pr_row(seed):
@@ -40,48 +36,68 @@ def pr_row(seed):
         seed >>= 1
     pf012 = solid * 2 + pf12
 
-    print(pf012, pf012[::-1])
+    print(pf012 + pf012[::-1])
+
+
+green = '\033[1;32;40m'
+cyan = '\033[1;36;40m'
+red = '\033[1;31;40m'
+purple = '\033[1;35;40m'
+yellow = '\033[1;33;40m'
+reset = '\033[0;0m'
+coloured = {'S': green + solid,
+            'E': green + empty,
+            'R': cyan + solid,
+            'A': red + empty,
+            'B': red + solid,
+            'C': purple + solid,
+            'D': purple + empty
+            }
+
+# Print rows marked with ANSI colours
+def pr_row_marked(halfrow):
+    fullrow = halfrow + halfrow[::-1]
+    ansirow = yellow + solid + solid
+
+    for tile in fullrow:
+        ansirow = ansirow + coloured[tile]
+
+    ansirow = ansirow + yellow + solid + solid + reset
+
+    print(ansirow)
 
 
 # the mystery table from Entombed
+# Rearranged to match the folded and rotated one
+# 'S' Solid on left side of table, empty on right
+# 'E' As above but inverse
+# 'R' Random either side of table
+# 'A', 'B' Empty on left, random on right side of table
+# 'C', 'D' Random on left, empty on right side of table
 
 MAGIC = {
-    (0b00, 0b000): 1,
-    (0b00, 0b001): 1,
-    (0b00, 0b010): 1,
-    (0b00, 0b011): None,  # None == random bit
-    (0b00, 0b100): 0,
-    (0b00, 0b101): 0,
-    (0b00, 0b110): None,
-    (0b00, 0b111): None,
+    (0b00, 0b000): 'S',  (0b11, 0b111): 'E', # Inverse bits, inverse result
+    (0b00, 0b001): 'S',  (0b11, 0b110): 'E',
+    (0b00, 0b010): 'S',  (0b11, 0b101): 'E',
+    (0b00, 0b011): 'R',  (0b11, 0b100): 'R', # Random on both sides...
+    (0b00, 0b100): 'A',  (0b11, 0b011): 'B', # except here...
+    (0b00, 0b101): 'E',  (0b11, 0b010): 'S',
+    (0b00, 0b110): 'C',  (0b11, 0b001): 'D', # and here
+    (0b00, 0b111): 'R',  (0b11, 0b000): 'R',
 
-    (0b01, 0b000): 1,
-    (0b01, 0b001): 1,
-    (0b01, 0b010): 1,
-    (0b01, 0b011): 1,
-    (0b01, 0b100): None,
-    (0b01, 0b101): 0,
-    (0b01, 0b110): 0,
-    (0b01, 0b111): 0,
-
-    (0b10, 0b000): 1,
-    (0b10, 0b001): 1,
-    (0b10, 0b010): 1,
-    (0b10, 0b011): None,
-    (0b10, 0b100): 0,
-    (0b10, 0b101): 0,
-    (0b10, 0b110): 0,
-    (0b10, 0b111): 0,
-
-    (0b11, 0b000): None,
-    (0b11, 0b001): 0,
-    (0b11, 0b010): 1,
-    (0b11, 0b011): None,
-    (0b11, 0b100): None,
-    (0b11, 0b101): 0,
-    (0b11, 0b110): 0,
-    (0b11, 0b111): 0,
+    (0b01, 0b000): 'S',  (0b10, 0b111): 'E',
+    (0b01, 0b001): 'S',  (0b10, 0b110): 'E',
+    (0b01, 0b010): 'S',  (0b10, 0b101): 'E',
+    (0b01, 0b011): 'S',  (0b10, 0b100): 'E',
+    (0b01, 0b100): 'R',  (0b10, 0b011): 'R',
+    (0b01, 0b101): 'E',  (0b10, 0b010): 'S',
+    (0b01, 0b110): 'E',  (0b10, 0b001): 'S',
+    (0b01, 0b111): 'E',  (0b10, 0b000): 'S',
 }
+
+# Translates the modified table back to bits.
+# Random is always 1 (determined by fair coin toss)
+translation = {'S': 1, 'E': 0, 'R': 1, 'A': 0, 'B': 1, 'C': 1, 'D': 0}
 
 
 def row_gen(last_rows):
@@ -96,14 +112,16 @@ def row_gen(last_rows):
     last_two = 0b10
 
     new_row = 0
+    new_row_marked = ''
 
     # iterate from 7...0, inclusive
     for i in range(7, -1, -1):
         three_above = (last_row_padded >> i) & 0b111
 
-        new_bit = MAGIC[last_two, three_above]
-        if new_bit is None:
-            new_bit = mid_random_bit()
+        new_bit_marked = MAGIC[last_two, three_above]
+        new_bit = translation[new_bit_marked]
+
+        new_row_marked = new_row_marked + new_bit_marked
         new_row = (new_row << 1) | new_bit
 
         last_two = ((last_two << 1) | new_bit) & 0b11
@@ -132,7 +150,8 @@ def row_gen(last_rows):
             # print 'pp 2'
             last_rows[-1] &= 0xf0
 
-    pr_row(last_rows[-1])
+    #pr_row(last_rows[-1])
+    pr_row_marked(new_row_marked)
     return last_rows
 
 
